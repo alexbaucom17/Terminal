@@ -1,0 +1,8 @@
+*.DS_Store*
+*.replay
+*__pycache__*
+
+!algos/starter-algo
+
+dist/*
+!dist/.gitkeep
