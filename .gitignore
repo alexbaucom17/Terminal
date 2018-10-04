@@ -2,7 +2,6 @@
 *.replay
 *__pycache__*
 
-!algos/starter-algo
 
 dist/*
 !dist/.gitkeep
