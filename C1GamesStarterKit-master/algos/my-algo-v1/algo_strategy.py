@@ -40,6 +40,7 @@ class AlgoStrategy(gamelib.AlgoCore):
         PING = config["unitInformation"][3]["shorthand"]
         EMP = config["unitInformation"][4]["shorthand"]
         SCRAMBLER = config["unitInformation"][5]["shorthand"]
+        
 
 
     def on_turn(self, turn_state):
@@ -54,9 +55,164 @@ class AlgoStrategy(gamelib.AlgoCore):
         gamelib.debug_write('Performing turn {} of your custom algo strategy'.format(game_state.turn_number))
         #game_state.suppress_warnings(True)  #Uncomment this line to suppress warnings.
 
-        self.starter_strategy(game_state)
+        self.custom_strategy(game_state)
 
         game_state.submit_turn()
+        
+        
+    def custom_strategy(self, game_state):
+        """
+        My custom strategy:
+        General idea is to have a number pre-planned types of moves and use them based on the current state
+        Plans:
+        Defense
+            build_wall
+            reinforce_wall
+            protect_corners
+            boost_attackers
+        Offsense
+            target_weak_side
+            EMP_blast
+            brute_force_pings
+        """
+        
+        
+        # Dumb strategy for now, just testing to see if it works
+        self.protect_corners(game_state)
+        self.build_wall(game_state,'evens')
+        self.reinforce_wall(game_state,'odds')
+        self.build_wall(game_state,'odds')
+        self.reinforce_wall(game_state,'evens')
+        self.boost_attackers(game_state)
+        
+        if game_state.turn_number % 2 == 0:
+            self.EMP_blast(game_state)
+        else:
+            self.brute_force_pings(game_state,'left')
+            
+            
+            
+
+
+
+
+
+    def build_wall(self, game_state, evens_or_odds=''):
+        """
+        Build a wall of filters near the front as the first line of protection
+        """
+
+        y = 11;
+        x = [ i for i in range(3,25) if i not in [13,14]]
+        wall_units = FILTER
+        
+        wall_locations = [(i,y) for i in x]
+        if evens_or_odds:
+            if evens_or_odds == 'evens':
+                wall_locations = wall_locations[1::2]
+            else:
+                wall_locations = wall_locations[0::2]
+        
+        self.build_as_many_as_possible(game_state, wall_units, wall_locations)
+        
+    def reinforce_wall(self,game_state,evens_or_odds=''):
+        """
+        Put a row of destructors behind the wall to kill units
+        """
+        
+        y = 10;
+        x = [ i for i in range(3,25) if i not in [13,14]]
+        wall_units = DESTRUCTOR
+        
+        wall_locations = [(i,y) for i in x]
+        if evens_or_odds:
+            if evens_or_odds == 'evens':
+                wall_locations = wall_locations[1::2]
+            else:
+                wall_locations = wall_locations[0::2]
+        self.build_as_many_as_possible(game_state, wall_units, wall_locations)
+        
+        
+    def protect_corners(self,game_state,left_or_right=''):
+        """
+        Add more defenses to the corners where we may be weak
+        """
+        
+        # First add some filters
+        wall_units = FILTER
+        wall_locations = [[1,13],[2,12],[25,12],[26,13]]
+        
+        if left_or_right:
+            if left_or_right == 'left':
+                wall_locations = wall_locations[0:2]
+            else:
+                wall_locations = wall_locations[2:4]
+        self.build_as_many_as_possible(game_state, wall_units, wall_locations)
+        
+        # Then add some destructors
+        wall_units = DESTRUCTOR
+        wall_locations = [[1,12],[2,11],[25,11],[26,12]]
+        
+        if left_or_right:
+            if left_or_right == 'left':
+                wall_locations = wall_locations[0:2]
+            else:
+                wall_locations = wall_locations[2:4]
+        self.build_as_many_as_possible(game_state, wall_units, wall_locations)
+        
+        
+    def boost_attackers(self, game_state):
+        """
+        Add some encryptors to help our attackers
+        """
+
+        wall_units = ENCRYPTOR
+        
+        wall_locations = [[12,10],[15,10],[12,9],[15,9],[12,8],[15,8]]
+
+        self.build_as_many_as_possible(game_state, wall_units, wall_locations)
+
+
+    def build_as_many_as_possible(self, game_state, unit, locations):
+        """
+        Utility function to build as many units at the given locations as possilbe
+        """
+        count = 0
+        for location in locations:
+            if game_state.can_spawn(unit, location):
+                game_state.attempt_spawn(unit, location)
+                count = count + 1
+        return count
+
+
+    def EMP_blast(self, game_state):
+        """
+        Build as many EMPs as we can alternating sides
+        """
+        
+        locations = [[8,5],[19,5]]
+        n_to_build = game_state.number_affordable(EMP)
+        for i in range(n_to_build):
+            game_state.attempt_spawn(EMP, locations[i%2])
+            
+    def brute_force_pings(self, game_state, side):
+        """
+        Send as many pings as possible
+        """
+
+        if side == 'left':
+            location = [11,2]
+        else:
+            location = [16,2]
+            
+        n_to_build = game_state.number_affordable(PING)
+        for i in range(n_to_build):
+            game_state.attempt_spawn(PING, location)
+            
+
+
+
+
 
     """
     NOTE: All the methods after this point are part of the sample starter-algo

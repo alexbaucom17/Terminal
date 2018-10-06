@@ -3,5 +3,5 @@
 *__pycache__*
 
 
-dist/*
+*/dist/*
 !dist/.gitkeep
