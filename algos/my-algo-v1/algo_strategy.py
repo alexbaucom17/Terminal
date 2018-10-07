@@ -60,10 +60,11 @@ class AlgoStrategy(gamelib.AlgoCore):
         game_state.submit_turn()
         
     def on_action_frame(self, turn_state):
-        #game_state = gamelib.GameState(self.config, turn_state)
+		if not self.first_action_frame:
+			self.first_action_frame = gamelib.GameState(self.config, turn_state)
+		else:
+			self.last_action_frame = gamelib.GameState(self.config, turn_state)
         
-        # do some analysis of the frames
-        pass
         
         
     def custom_strategy(self, game_state):
@@ -82,6 +83,11 @@ class AlgoStrategy(gamelib.AlgoCore):
             brute_force_pings
         """
         
+		# analyze previous action frames
+		self.analyze_previous_action_frames()
+
+		
+		
         
         # Dumb strategy for now, just testing to see if it works
         self.protect_corners(game_state)
@@ -100,7 +106,12 @@ class AlgoStrategy(gamelib.AlgoCore):
             
 
 
-
+	def analyze_previous_action_frames(self):
+		
+		# Do some analysis here
+		
+		self.first_action_frame = []
+		self.last_action_frame = []
 
 
     def build_wall(self, game_state, evens_or_odds=''):
