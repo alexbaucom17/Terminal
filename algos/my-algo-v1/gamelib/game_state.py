@@ -77,6 +77,8 @@ class GameState:
         self._shortest_path_finder = ShortestPathFinder()
         self._build_stack = []
         self._deploy_stack = []
+        self._enemy_unit_list = []
+        self._friendly_unit_list = []
         self._player_resources = [
                 {'cores': 0, 'bits': 0},  # player 0, which is you
                 {'cores': 0, 'bits': 0}]  # player 1, which is the opponent
@@ -126,6 +128,10 @@ class GameState:
                     self.game_map[x,y][0].pending_removal = True
                 unit = GameUnit(unit_type, self.config, player_number, hp, x, y)
                 self.game_map[x,y].append(unit)
+                if player_number == 0:
+                    self._friendly_unit_list.append(unit)
+                else:
+                    self._enemy_unit_list.append(unit)
 
     def __resource_required(self, unit_type):
         return self.CORES if is_stationary(unit_type) else self.BITS
@@ -384,4 +390,54 @@ class GameState:
             warnings.filterwarnings("ignore")
         else:
             warnings.resetwarnings()
+            
+    def get_all_units_of_type(self, type, player):
+        """
+        Get a list of units and their locations without having to search every location 
+        on the game map
+    
+        type: [string] all, info, firewall, ping, emp, scrambler, filter, encryptor, destructor
+        player: [string] me, enemy
+        
+        returns a list of GameUnit objects
+        """
+        
+        if player == "me":
+            unit_list = self._friendly_unit_list
+        elif player == "enemy":
+            unit_list = self._enemy_unit_list
+        else: 
+            raise ValueError("Invalid player name")
+        
+        if type == "all":
+            return unit_list
+        elif type == "info":
+            find_units = ["PI", "EI", "SI"]
+        elif type == "firewall":
+            find_units = ["FF", "EF", "DF"]
+        elif type == "ping":
+            find_units = ["PI"]
+        elif type == "emp":
+            find_units = ["EI"]
+        elif type == "scrambler":
+            find_units = ["SI"]
+        elif type == "filter":
+            find_units = ["FF"]
+        elif type == "encryptor":
+            find_units = ["EF"]
+        elif type == "destructor":
+            find_units = ["DF"]
+        else: 
+            raise ValueError("Invalid type")
+            
+        return [unit_info for unit_info in unit_list if unit_info.unit_type in find_units]
+            
+        
+        
+        
+        
+        
+        
+        
+        
 

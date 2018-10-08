@@ -22,6 +22,153 @@ board states. Though, we recommended making a copy of the map to preserve
 the actual current map state.
 """
 
+
+# Quadrant names
+class Quadrant:
+
+    MY_BACK = 0 
+    MY_FRONT = 1
+    MY_LEFT = 2 
+    MY_RIGHT = 3
+    OP_BACK = 4
+    OP_FRONT = 5
+    OP_LEFT = 6 # This is still left from my perspective
+    OP_RIGHT = 7 # This is still right from my persective
+
+    def __init__(self):
+        
+        self.arena_size = 28
+        self.half_area = 14
+        self.left_div = 8
+        self.right_div = 19
+        self.front_back_div_me = 8
+        self.front_back_div_enemy = 19
+        
+        self.all_quadrants = (self.MY_BACK, self.MY_FRONT, self.MY_LEFT, self.MY_RIGHT, self.OP_BACK, self.OP_FRONT, self.OP_LEFT, self.OP_RIGHT)
+        
+        self.all_points = tuple([(x,y) for x in range(0,arena_size) for y in range(0, arena_size)])
+        
+        self.my_points = tuple([pt for pt in self.all_points if pt[1] < half_area])
+        self.enemy_points = tuple([pt for pt in self.all_points if pt[1] >= half_area])
+
+        self.quadrant_points = {};
+        self.quadrant_points[self.MY_BACK]  = tuple([pt for pt in self.my_points if pt[1] <= self.front_back_div_me and pt[0] > self.left_div and pt[0] < self.right_div])
+        self.quadrant_points[self.MY_FRONT] = tuple([pt for pt in self.my_points if pt[1] >  self.front_back_div_me and pt[0] > self.left_div and pt[0] < self.right_div])
+        self.quadrant_points[self.MY_LEFT]  = tuple([pt for pt in self.my_points if pt[0] <= self.left_div ])
+        self.quadrant_points[self.MY_RIGHT] = tuple([pt for pt in self.my_points if pt[0] >= self.right_div])
+        
+        self.quadrant_points[self.OP_BACK]  = tuple([pt for pt in self.enemy_points if pt[1] <= self.front_back_div_enemy and pt[0] > self.left_div and pt[0] < self.right_div])
+        self.quadrant_points[self.OP_FRONT] = tuple([pt for pt in self.enemy_points if pt[1] >  self.front_back_div_enemy and pt[0] > self.left_div and pt[0] < self.right_div])
+        self.quadrant_points[self.OP_LEFT]  = tuple([pt for pt in self.enemy_points if pt[0] <= self.left_div ])
+        self.quadrant_points[self.OP_RIGHT] = tuple([pt for pt in self.enemy_points if pt[0] >= self.right_div])
+        
+        self.reset_firewalls_per_quadrant()
+        
+    def get_quadrant_points(self, quadrant):
+        return self.quadrant_points(quadrant)
+        
+    def get_my_points(self):
+        return self.my_points
+        
+    def get_enemy_points(self):
+        return self.enemy_points
+    
+    def get_all_points(self):
+        return self.all_points
+        
+    def compute_quadrant_strengths(self, game_state):
+    
+        quad_strength = {}
+        for quad in all_quadrants:
+            numerator = 0
+            denominator = len(self.quadrant_points[quad])
+            for unit in self.firewalls_per_quadrant[quad]:
+                if unit.type == 'FF':
+                    orig_stab = game_state.config['unitInformation'][0]['stability']
+                elif unit.type == 'EF':
+                    orig_stab = game_state.config['unitInformation'][1]['stability']
+                elif unit.type == 'DF':
+                    orig_stab = game_state.config['unitInformation'][2]['stability']
+                else:
+                    raise ValueError('Invalid unit type')
+                    
+                numerator = numerator + unit.stability/orig_stab
+            
+            quad_strength[quad] = numerator/float(denominator)
+        
+        return quad_strength
+
+    def compute_quadrant_danger(self, game_state):
+        quad_danger = {}
+        for quad in all_quadrants:
+            numerator = 0
+            denominator = len(self.quadrant_points[quad])
+            for unit in self.firewalls_per_quadrant[quad]:
+                if unit.type == 'DF':
+                    orig_stab = game_state.config['unitInformation'][2]['stability']
+                    disruption = game_state.config['unitInformation'][2]['damage']
+                    numerator = numerator + unit.stability/orig_stab * disruption
+            
+            quad_danger[quad] = numerator/float(denominator)
+        
+        return quad_danger
+        
+    def reset_firewalls_per_quadrant(self):
+        self.firewalls_per_quadrant = {}
+        for quad in all_quadrants:
+            self.firewalls_per_quadrant[quad] = []
+        
+    def assign_all_firewalls_to_quadrants(self,game_state):
+        my_firewalls = game_state.get_all_units_of_type('firewall','me')
+        enemy_firewalls = game_state.get_all_units_of_type('firewall','enemy')
+        self.reset_firewalls_per_quadrant()
+        
+        for unit in my_firewalls:
+            quad = self.get_quadrant_for_location(unit.x, unit.y)
+            self.firewalls_per_quadrant[quad].append(unit)
+            
+        for unit in enemy_firewalls:
+            quad = self.get_quadrant_for_location(unit.x, unit.y)
+            self.firewalls_per_quadrant[quad].append(unit)
+        
+    def get_quadrant_for_location(self,x,y):
+        
+        if x < self.half_area:
+            mine = True
+        else:
+            mine = False
+            
+        if mine:
+            if y <= self.front_back_div_me and x > self.left_div and x < self.right_div:
+                return self.MY_BACK
+            elif y >  self.front_back_div_me and x > self.left_div and x < self.right_div:
+                return self.MY_FRONT
+            elif x <= self.left_div:
+                return self.MY_LEFT
+            elif x >= self.right_dif:
+                return self.MY_RIGHT
+            else:
+                raise ValueError("Invalid unit location")       
+        else:
+            if y <= self.front_back_div_enemy and x > self.left_div and x < self.right_div:
+                return self.OP_BACK
+            elif y >  self.front_back_div_enemy and x > self.left_div and x < self.right_div:
+                return self.OP_FRONT
+            elif x <= self.left_div:
+                return self.OP_LEFT
+            elif x >= self.right_dif:
+                return self.OP_RIGHT
+            else:
+                raise ValueError("Invalid unit location")
+            
+            
+        
+    
+
+
+
+
+
 class AlgoStrategy(gamelib.AlgoCore):
     def __init__(self):
         super().__init__()
@@ -41,6 +188,11 @@ class AlgoStrategy(gamelib.AlgoCore):
         EMP = config["unitInformation"][4]["shorthand"]
         SCRAMBLER = config["unitInformation"][5]["shorthand"]
         
+        # My variables        
+        self.quadrant_analyzer = Quadrant()
+        self.scoring_locations = {'me': [], 'enemy':[]}
+        
+
 
 
     def on_turn(self, turn_state):
@@ -58,12 +210,15 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.custom_strategy(game_state)
 
         game_state.submit_turn()
-        
+  
+  
     def on_action_frame(self, turn_state):
-		if not self.first_action_frame:
-			self.first_action_frame = gamelib.GameState(self.config, turn_state)
-		else:
-			self.last_action_frame = gamelib.GameState(self.config, turn_state)
+        
+        action_frame = gamelib.GameState(self.config, turn_state)
+        self.get_scoring_locations(action_frame)
+        
+    def get_scoring_locations(self, action_frame):
+        pass
         
         
         
@@ -83,12 +238,11 @@ class AlgoStrategy(gamelib.AlgoCore):
             brute_force_pings
         """
         
-		# analyze previous action frames
-		self.analyze_previous_action_frames()
-
-		
-		
         
+        # Find weak areas
+        (quad_strength, quad_danger) = self.analyze_defense_strength(game_state)
+
+
         # Dumb strategy for now, just testing to see if it works
         self.protect_corners(game_state)
         self.build_wall(game_state,'evens')
@@ -102,17 +256,19 @@ class AlgoStrategy(gamelib.AlgoCore):
         else:
             self.brute_force_pings(game_state,'left')
             
-            
-            
-
-
-	def analyze_previous_action_frames(self):
-		
-		# Do some analysis here
-		
-		self.first_action_frame = []
-		self.last_action_frame = []
-
+        
+        # Clean up 
+        self.scoring_locations = {'me': [], 'enemy':[]}
+        
+        
+    def analyze_defense_strength(self, game_state):
+        
+        self.quadrant_analyzer.assign_all_firewalls_to_quadrants(game_state)
+        quad_strength = self.quadrant_analyzer.compute_quadrant_strengths(game_state)
+        quad_danger = self.quadrant_analyzer.compute_quadrant_danger(game_state)
+        
+        return (quad_strength, quad_danger)
+        
 
     def build_wall(self, game_state, evens_or_odds=''):
         """

@@ -31,7 +31,7 @@ class AlgoCore(object):
         send_command("")
         send_command("")
         
-    def on_action_frame(self, game_state)
+    def on_action_frame(self, game_state):
         pass
 
     # only override this function if you have a 
