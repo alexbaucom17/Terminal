@@ -3,6 +3,7 @@ import random
 import math
 import warnings
 from sys import maxsize
+import json
 
 """
 
@@ -46,10 +47,10 @@ class Quadrant:
         
         self.all_quadrants = (self.MY_BACK, self.MY_FRONT, self.MY_LEFT, self.MY_RIGHT, self.OP_BACK, self.OP_FRONT, self.OP_LEFT, self.OP_RIGHT)
         
-        self.all_points = tuple([(x,y) for x in range(0,arena_size) for y in range(0, arena_size)])
+        self.all_points = tuple([(x,y) for x in range(0,self.arena_size) for y in range(0, self.arena_size)])
         
-        self.my_points = tuple([pt for pt in self.all_points if pt[1] < half_area])
-        self.enemy_points = tuple([pt for pt in self.all_points if pt[1] >= half_area])
+        self.my_points = tuple([pt for pt in self.all_points if pt[1] < self.half_area])
+        self.enemy_points = tuple([pt for pt in self.all_points if pt[1] >= self.half_area])
 
         self.quadrant_points = {};
         self.quadrant_points[self.MY_BACK]  = tuple([pt for pt in self.my_points if pt[1] <= self.front_back_div_me and pt[0] > self.left_div and pt[0] < self.right_div])
@@ -57,8 +58,8 @@ class Quadrant:
         self.quadrant_points[self.MY_LEFT]  = tuple([pt for pt in self.my_points if pt[0] <= self.left_div ])
         self.quadrant_points[self.MY_RIGHT] = tuple([pt for pt in self.my_points if pt[0] >= self.right_div])
         
-        self.quadrant_points[self.OP_BACK]  = tuple([pt for pt in self.enemy_points if pt[1] <= self.front_back_div_enemy and pt[0] > self.left_div and pt[0] < self.right_div])
-        self.quadrant_points[self.OP_FRONT] = tuple([pt for pt in self.enemy_points if pt[1] >  self.front_back_div_enemy and pt[0] > self.left_div and pt[0] < self.right_div])
+        self.quadrant_points[self.OP_BACK]  = tuple([pt for pt in self.enemy_points if pt[1] >= self.front_back_div_enemy and pt[0] > self.left_div and pt[0] < self.right_div])
+        self.quadrant_points[self.OP_FRONT] = tuple([pt for pt in self.enemy_points if pt[1] <  self.front_back_div_enemy and pt[0] > self.left_div and pt[0] < self.right_div])
         self.quadrant_points[self.OP_LEFT]  = tuple([pt for pt in self.enemy_points if pt[0] <= self.left_div ])
         self.quadrant_points[self.OP_RIGHT] = tuple([pt for pt in self.enemy_points if pt[0] >= self.right_div])
         
@@ -79,15 +80,15 @@ class Quadrant:
     def compute_quadrant_strengths(self, game_state):
     
         quad_strength = {}
-        for quad in all_quadrants:
+        for quad in self.all_quadrants:
             numerator = 0
             denominator = len(self.quadrant_points[quad])
             for unit in self.firewalls_per_quadrant[quad]:
-                if unit.type == 'FF':
+                if unit.unit_type == 'FF':
                     orig_stab = game_state.config['unitInformation'][0]['stability']
-                elif unit.type == 'EF':
+                elif unit.unit_type == 'EF':
                     orig_stab = game_state.config['unitInformation'][1]['stability']
-                elif unit.type == 'DF':
+                elif unit.unit_type == 'DF':
                     orig_stab = game_state.config['unitInformation'][2]['stability']
                 else:
                     raise ValueError('Invalid unit type')
@@ -100,11 +101,11 @@ class Quadrant:
 
     def compute_quadrant_danger(self, game_state):
         quad_danger = {}
-        for quad in all_quadrants:
+        for quad in self.all_quadrants:
             numerator = 0
             denominator = len(self.quadrant_points[quad])
             for unit in self.firewalls_per_quadrant[quad]:
-                if unit.type == 'DF':
+                if unit.unit_type == 'DF':
                     orig_stab = game_state.config['unitInformation'][2]['stability']
                     disruption = game_state.config['unitInformation'][2]['damage']
                     numerator = numerator + unit.stability/orig_stab * disruption
@@ -115,7 +116,7 @@ class Quadrant:
         
     def reset_firewalls_per_quadrant(self):
         self.firewalls_per_quadrant = {}
-        for quad in all_quadrants:
+        for quad in self.all_quadrants:
             self.firewalls_per_quadrant[quad] = []
         
     def assign_all_firewalls_to_quadrants(self,game_state):
@@ -130,10 +131,14 @@ class Quadrant:
         for unit in enemy_firewalls:
             quad = self.get_quadrant_for_location(unit.x, unit.y)
             self.firewalls_per_quadrant[quad].append(unit)
+            
+        #gamelib.debug_write('Firewalls per quadrant\n')
+        #gamelib.debug_write(self.firewalls_per_quadrant)
+        #gamelib.debug_write('\n')
         
     def get_quadrant_for_location(self,x,y):
         
-        if x < self.half_area:
+        if y < self.half_area:
             mine = True
         else:
             mine = False
@@ -145,28 +150,22 @@ class Quadrant:
                 return self.MY_FRONT
             elif x <= self.left_div:
                 return self.MY_LEFT
-            elif x >= self.right_dif:
+            elif x >= self.right_div:
                 return self.MY_RIGHT
             else:
                 raise ValueError("Invalid unit location")       
         else:
-            if y <= self.front_back_div_enemy and x > self.left_div and x < self.right_div:
+            if y >= self.front_back_div_enemy and x > self.left_div and x < self.right_div:
                 return self.OP_BACK
-            elif y >  self.front_back_div_enemy and x > self.left_div and x < self.right_div:
+            elif y <  self.front_back_div_enemy and x > self.left_div and x < self.right_div:
                 return self.OP_FRONT
             elif x <= self.left_div:
                 return self.OP_LEFT
-            elif x >= self.right_dif:
+            elif x >= self.right_div:
                 return self.OP_RIGHT
             else:
                 raise ValueError("Invalid unit location")
             
-            
-        
-    
-
-
-
 
 
 class AlgoStrategy(gamelib.AlgoCore):
@@ -193,8 +192,6 @@ class AlgoStrategy(gamelib.AlgoCore):
         self.scoring_locations = {'me': [], 'enemy':[]}
         
 
-
-
     def on_turn(self, turn_state):
         """
         This function is called every turn with the game state wrapper as
@@ -209,17 +206,26 @@ class AlgoStrategy(gamelib.AlgoCore):
 
         self.custom_strategy(game_state)
 
+        gamelib.debug_write('Submitting turn')
         game_state.submit_turn()
   
   
     def on_action_frame(self, turn_state):
         
         action_frame = gamelib.GameState(self.config, turn_state)
-        self.get_scoring_locations(action_frame)
+        breach_locations = action_frame.get_breach_locations()
         
-    def get_scoring_locations(self, action_frame):
-        pass
+        for location in breach_locations:
+            if location[1] < self.quadrant_analyzer.half_area:
+                self.scoring_locations['enemy'].append(location)
+            else:
+                self.scoring_locations['me'].append(location)
         
+        """if action_frame.turn_number == 1:
+            turn_state_json = json.loads(turn_state)
+            gamelib.debug_write(turn_state_json['events'])
+            gamelib.debug_write('-------------')
+        """
         
         
     def custom_strategy(self, game_state):
@@ -241,6 +247,14 @@ class AlgoStrategy(gamelib.AlgoCore):
         
         # Find weak areas
         (quad_strength, quad_danger) = self.analyze_defense_strength(game_state)
+        
+        gamelib.debug_write('scoring locations\n')
+        gamelib.debug_write(self.scoring_locations)
+        gamelib.debug_write('\n')
+        
+        #gamelib.debug_write('quad_danger\n')
+        #gamelib.debug_write(quad_danger)
+        #gamelib.debug_write('\n')
 
 
         # Dumb strategy for now, just testing to see if it works

@@ -77,6 +77,7 @@ class GameState:
         self._shortest_path_finder = ShortestPathFinder()
         self._build_stack = []
         self._deploy_stack = []
+        self._breach_locations = []
         self._enemy_unit_list = []
         self._friendly_unit_list = []
         self._player_resources = [
@@ -111,6 +112,11 @@ class GameState:
 
         self.__create_parsed_units(p1units, 0)
         self.__create_parsed_units(p2units, 1)
+        
+        events = state['events']
+        
+        for breach in events['breach']:
+            self._breach_locations.append(breach[0])
 
     def __create_parsed_units(self, units, player_number):
         """
@@ -433,7 +439,8 @@ class GameState:
         return [unit_info for unit_info in unit_list if unit_info.unit_type in find_units]
             
         
-        
+    def get_breach_locations(self):
+        return self._breach_locations
         
         
         
